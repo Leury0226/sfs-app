@@ -6,6 +6,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
   private static let bridgeName = "sfsNative"
 
   private var webView: WKWebView!
+  private var statusBarStyle: UIStatusBarStyle = .default
+
+  override var preferredStatusBarStyle: UIStatusBarStyle {
+    statusBarStyle
+  }
 
   override func loadView() {
     let contentController = WKUserContentController()
@@ -29,7 +34,20 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     if #available(iOS 16.4, *) {
       webView.isInspectable = true
     }
-    view = webView
+
+    // La web va dentro del area segura: nada queda debajo de la isla, la hora ni el indicador de inicio.
+    // Las franjas de arriba y abajo se pintan con el color del tema (ver `applyTheme`)
+    let container = UIView()
+    container.backgroundColor = .systemBackground
+    webView.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(webView)
+    NSLayoutConstraint.activate([
+      webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+      webView.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor),
+      webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+    ])
+    view = container
   }
 
   override func viewDidLoad() {
@@ -39,12 +57,52 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
   }
 
-  // Mensajes de la interfaz: { keepAwake: Bool }
+  // Mensajes de la interfaz: { keepAwake: Bool } y { theme: { background: String, isDark: Bool } }
   func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
     guard let body = message.body as? [String: Any] else { return }
     if let keepAwake = body["keepAwake"] as? Bool {
       UIApplication.shared.isIdleTimerDisabled = keepAwake
     }
+    if let theme = body["theme"] as? [String: Any] {
+      applyTheme(background: theme["background"] as? String, isDark: theme["isDark"] as? Bool ?? false)
+    }
+  }
+
+  private func applyTheme(background: String?, isDark: Bool) {
+    let style: UIUserInterfaceStyle = isDark ? .dark : .light
+    let color = background.flatMap(Self.parseColor) ?? (isDark ? .black : .white)
+    view.backgroundColor = color
+    webView.backgroundColor = color
+    view.window?.backgroundColor = color
+    view.window?.overrideUserInterfaceStyle = style
+    statusBarStyle = isDark ? .lightContent : .darkContent
+    setNeedsStatusBarAppearanceUpdate()
+  }
+
+  // Acepta "#rrggbb", "#rgb" o "rgb(r, g, b)" / "rgba(r, g, b, a)"
+  private static func parseColor(_ value: String) -> UIColor? {
+    let text = value.trimmingCharacters(in: .whitespaces).lowercased()
+    if text.hasPrefix("#") {
+      var hex = String(text.dropFirst())
+      if hex.count == 3 {
+        hex = hex.map { "\($0)\($0)" }.joined()
+      }
+      guard hex.count == 6, let number = UInt32(hex, radix: 16) else { return nil }
+      return UIColor(
+        red: CGFloat((number >> 16) & 0xFF) / 255,
+        green: CGFloat((number >> 8) & 0xFF) / 255,
+        blue: CGFloat(number & 0xFF) / 255,
+        alpha: 1
+      )
+    }
+    guard text.hasPrefix("rgb"), let open = text.firstIndex(of: "("), let close = text.lastIndex(of: ")") else {
+      return nil
+    }
+    let parts = text[text.index(after: open)..<close]
+      .split(separator: ",")
+      .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+    guard parts.count >= 3 else { return nil }
+    return UIColor(red: parts[0] / 255, green: parts[1] / 255, blue: parts[2] / 255, alpha: 1)
   }
 
   // Los links externos se abren en Safari; la app solo navega dentro de su propia interfaz

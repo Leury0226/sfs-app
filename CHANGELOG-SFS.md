@@ -3,6 +3,17 @@
 SFS App es una version modificada de Telegram Web A (https://github.com/Ajaxy/telegram-tt, GPL v3)
 con un modulo SFS integrado. Todo el codigo propio esta en `src/sfs/` (web) e `ios/` (iPhone).
 
+## v0.5.0 - 2026-10-19
+### Añadido
+- Boton flotante "SFS" (estilo AssistiveTouch): abre el panel SFS, se arrastra a cualquier borde y recuerda
+  la posicion. Color segun el estado: azul con punto verde = SFS encendido, gris = apagado, punto rojo = sin licencia.
+- Barra de abajo estilo Telegram para iPhone en pantallas de movil: Contactos · Chats (con no leidos) · Ajustes.
+  Las listas dejan espacio abajo y el lapiz de nuevo mensaje sube para no quedar tapado.
+
+### Arreglado
+- iPhone: la interfaz quedaba debajo de la isla y la hora. Ahora va dentro del area segura, y las franjas de
+  arriba y abajo toman el color del tema (claro u oscuro), igual que la barra de estado.
+
 ## v0.4.0 - 2026-10-19
 ### Añadido
 - App de iPhone (`ios/`): app nativa minima en Swift que carga la misma interfaz (Telegram + SFS) en un WebView.

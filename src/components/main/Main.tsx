@@ -58,7 +58,9 @@ import useBeforeUnload from '../../hooks/window/useBeforeUnload';
 import { useFullscreenStatus } from '../../hooks/window/useFullscreen';
 import { PANE_GAP_REM, type PaneState } from '../middle/hooks/useHeaderPane';
 
+import SfsFloatingButton from '../../sfs/components/SfsFloatingButton';
 import SfsPanel from '../../sfs/components/SfsPanel';
+import SfsTabBar from '../../sfs/components/SfsTabBar';
 import ActiveCallHeader from '../calls/ActiveCallHeader.async';
 import GroupCall from '../calls/group/GroupCall.async';
 import PhoneCall from '../calls/phone/PhoneCall.async';
@@ -692,6 +694,8 @@ const Main = ({
       <ReactionPicker isOpen={isReactionPickerOpen} />
       <DeleteMessageModal isOpen={isDeleteMessageModalOpen} />
       <SfsPanel />
+      <SfsTabBar />
+      <SfsFloatingButton />
     </Wallpaper>
   );
 };

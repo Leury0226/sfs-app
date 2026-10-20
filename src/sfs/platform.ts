@@ -12,3 +12,21 @@ export const IS_SFS_IOS_APP = Boolean(getIosBridge());
 export function setKeepScreenAwake(isAwake: boolean) {
   getIosBridge()?.postMessage({ keepAwake: isAwake });
 }
+
+// La franja de la barra de estado (arriba) y la del indicador de inicio (abajo) las pinta la app nativa:
+// se le pasa el color del tema cada vez que cambia entre claro y oscuro
+function syncNativeTheme() {
+  const root = document.documentElement;
+  const background = getComputedStyle(root).getPropertyValue('--color-background').trim();
+  if (!background) return;
+
+  getIosBridge()?.postMessage({ theme: { background, isDark: root.classList.contains('theme-dark') } });
+}
+
+if (IS_SFS_IOS_APP) {
+  new MutationObserver(syncNativeTheme).observe(document.documentElement, {
+    attributes: true, attributeFilter: ['class', 'style'],
+  });
+  window.addEventListener('load', syncNativeTheme);
+  syncNativeTheme();
+}

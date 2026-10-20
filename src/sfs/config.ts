@@ -1,6 +1,6 @@
 // Ajustes generales del modulo SFS (codigo propio de SFS App, no viene de Telegram Web A)
 
-export const SFS_APP_VERSION = '0.4.0';
+export const SFS_APP_VERSION = '0.5.0';
 
 export const SFS_API_URL = 'https://followmytg.com/api';
 export const SFS_REQUEST_TIMEOUT = 15000;
