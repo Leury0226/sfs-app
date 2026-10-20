@@ -88,6 +88,21 @@ jobs:
               json.dump(config, f)
           PY
 
+      - name: Certificado de prueba (llavero temporal)
+        working-directory: telegram/build-system/Make
+        run: |
+          python3 -c "import ImportCertificates; ImportCertificates.import_certificates('../fake-codesigning/certs')"
+          security set-key-partition-list -S apple-tool:,apple: -s -k secret temp.keychain > /dev/null
+          security find-identity -v -p codesigning
+
+      - name: Restaurar cache de compilacion
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ env.TELEGRAM_IOS_COMMIT }}-${{ github.run_number }}
+          restore-keys: |
+            bazel-${{ env.TELEGRAM_IOS_COMMIT }}-
+
       - name: Compilar
         working-directory: telegram
         run: |
@@ -103,6 +118,13 @@ jobs:
             --configuration=release_arm64 \
             --outputBuildArtifactsPath="$GITHUB_WORKSPACE/out" \
             2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Guardar cache de compilacion
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ env.TELEGRAM_IOS_COMMIT }}-${{ github.run_number }}
 
       - name: Armar el .ipa
         run: |
