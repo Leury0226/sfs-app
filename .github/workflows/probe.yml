@@ -1,0 +1,26 @@
+name: Probe Mac
+on:
+  push:
+    branches: [ios-nativo]
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Info
+        run: |
+          {
+            echo "## ${{ matrix.os }}"
+            echo '```'
+            sw_vers
+            echo "cpu: $(sysctl -n hw.ncpu)  ram_gb: $(( $(sysctl -n hw.memsize) / 1073741824 ))  arch: $(uname -m)"
+            df -h / /System/Volumes/Data 2>/dev/null
+            echo "xcode-select: $(xcode-select -p)"
+            ls -d /Applications/Xcode*.app
+            xcodebuild -version
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
