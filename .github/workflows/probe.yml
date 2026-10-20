@@ -23,4 +23,4 @@ jobs:
             xcodebuild -version
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=${{ matrix.os }}::$(sw_vers -productVersion) | cpu $(sysctl -n hw.ncpu) | ram $(( $(sysctl -n hw.memsize) / 1073741824 ))GB | libre $(df -h /System/Volumes/Data | awk 'NR==2{print $4}') | $(xcodebuild -version | head -1) | xcodes: $(ls -d /Applications/Xcode*.app | xargs -n1 basename | tr '\n' ' ')"
