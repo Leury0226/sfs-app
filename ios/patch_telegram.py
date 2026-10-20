@@ -77,14 +77,48 @@ patch('submodules/TelegramUI/Sources/ApplicationContext.swift',
             }
         }
         
-        let sfsPeerId = context.account.peerId
-        let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: sfsPeerId))
+        let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
         |> deliverOnMainQueue).start(next: { peer in
-            SFSModule.shared.start(userId: sfsPeerId.id._internalGetInt64Value(), username: peer?.addressName, fullName: peer?.debugDisplayTitle)
+            SFSModule.shared.start(account: context.account, username: peer?.addressName, fullName: peer?.debugDisplayTitle)
         })
     }
     
     deinit {
         SFSModule.shared.stop(userId: self.context.account.peerId.id._internalGetInt64Value())
         self.context.account.postbox.clearCaches()
+''')
+
+# 5. TelegramCore avisa al SFS de cada mensaje nuevo, tambien en chats silenciados
+#    (`notificationMessages` los descarta)
+STATE_MANAGER = 'submodules/TelegramCore/Sources/State/AccountStateManager.swift'
+patch(STATE_MANAGER,
+      '''        fileprivate let storyUpdatesPipe = ValuePipe<[InternalStoryUpdate]>()
+''',
+      '''        fileprivate let storyUpdatesPipe = ValuePipe<[InternalStoryUpdate]>()
+        fileprivate let sfsIncomingMessageIdsPipe = ValuePipe<[MessageId]>()
+''')
+
+patch(STATE_MANAGER,
+      '''                            if !events.storyUpdates.isEmpty {
+                                strongSelf.storyUpdatesPipe.putNext(events.storyUpdates)
+                            }
+''',
+      '''                            if !events.storyUpdates.isEmpty {
+                                strongSelf.storyUpdatesPipe.putNext(events.storyUpdates)
+                            }
+                            if !events.addedIncomingMessageIds.isEmpty {
+                                strongSelf.sfsIncomingMessageIdsPipe.putNext(events.addedIncomingMessageIds)
+                            }
+''')
+
+patch(STATE_MANAGER,
+      '''    func injectStoryUpdates(updates: [InternalStoryUpdate]) {
+''',
+      '''    var sfsIncomingMessageIds: Signal<[MessageId], NoError> {
+        return self.impl.signalWith { impl, subscriber in
+            return impl.sfsIncomingMessageIdsPipe.signal().start(next: subscriber.putNext)
+        }
+    }
+    
+    func injectStoryUpdates(updates: [InternalStoryUpdate]) {
 ''')

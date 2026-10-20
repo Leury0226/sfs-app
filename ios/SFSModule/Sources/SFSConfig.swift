@@ -10,7 +10,7 @@ struct SFSPrice: Identifiable {
 }
 
 enum SFSConfig {
-    static let appVersion = "0.6.0"
+    static let appVersion = "0.7.0"
 
     static let apiURL = URL(string: "https://followmytg.com/api")!
     static let requestTimeout: TimeInterval = 15

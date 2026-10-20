@@ -2,6 +2,13 @@ import Foundation
 import UIKit
 import Combine
 
+// Punto de estado del boton: verde = SFS trabajando, gris = SFS apagado, rojo = sin licencia
+enum SFSButtonStatus {
+    case working
+    case off
+    case noLicense
+}
+
 // Boton flotante "SFS" estilo AssistiveTouch. Vive en una ventana propia del tamaño del boton, encima de
 // Telegram: no toca la interfaz de Telegram ni la barra de estado. Se arrastra y se pega al borde mas cercano.
 final class SFSFloatingWindow: UIWindow {
@@ -14,7 +21,7 @@ final class SFSFloatingWindow: UIWindow {
     private var dragStartOrigin = CGPoint.zero
     private var onTap: (() -> Void)?
 
-    init(license: SFSLicenseStore, onTap: @escaping () -> Void) {
+    init(status: AnyPublisher<SFSButtonStatus, Never>, onTap: @escaping () -> Void) {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first {
             super.init(windowScene: scene)
@@ -36,10 +43,10 @@ final class SFSFloatingWindow: UIWindow {
         self.buttonView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleTap)))
         self.buttonView.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(self.handlePan(_:))))
 
-        license.$state
+        status
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] state in
-                self?.buttonView.update(state: state)
+            .sink { [weak self] status in
+                self?.buttonView.update(status: status)
             }
             .store(in: &self.cancellables)
 
@@ -143,13 +150,14 @@ private final class SFSFloatingButtonView: UIView {
         self.dot.layer.cornerRadius = dotSize / 2
     }
 
-    // Punto de estado: gris = SFS apagado, rojo = sin licencia
-    func update(state: SFSLicenseStore.State) {
-        switch state {
-        case .invalid, .error:
-            self.dot.backgroundColor = .systemRed
-        case .loading, .valid:
+    func update(status: SFSButtonStatus) {
+        switch status {
+        case .working:
+            self.dot.backgroundColor = .systemGreen
+        case .off:
             self.dot.backgroundColor = .systemGray
+        case .noLicense:
+            self.dot.backgroundColor = .systemRed
         }
     }
 }

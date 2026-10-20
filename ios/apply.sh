@@ -9,6 +9,10 @@ echo "==> Modulo SFS"
 rm -rf "$TG/submodules/SFSModule"
 cp -R "$HERE/SFSModule" "$TG/submodules/SFSModule"
 
+echo "==> Puente SFS en TelegramCore"
+mkdir -p "$TG/submodules/TelegramCore/Sources/SFS"
+cp "$HERE/TelegramCoreSFS/SFSBridge.swift" "$TG/submodules/TelegramCore/Sources/SFS/SFSBridge.swift"
+
 echo "==> Icono"
 cp "$HERE/icon/Plane.svg" "$TG/Telegram/Telegram-iOS/Telegram.icon/Assets/Plane.svg"
 
