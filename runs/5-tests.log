@@ -1,0 +1,77 @@
+Building for debugging...
+[0/7] /Users/runner/work/sfs-app/sfs-app/ios/SFSModule/.build/arm64-apple-macosx/debug/SFSCorePackageTests.derived/runner.swift
+[1/7] Write sources
+[4/7] Write swift-version-7974D3F7F03D5E95.txt
+[6/12] Compiling SFSCore SFSConstants.swift
+[7/12] Compiling SFSCore SFSDetect.swift
+[8/12] Emitting module SFSCore
+[9/12] Compiling SFSCore SFSEngine.swift
+[10/12] Compiling SFSCore SFSSettings.swift
+[11/14] Compiling SFSCore SFSState.swift
+[12/14] Compiling SFSCore SFSTelegram.swift
+[13/17] Compiling SFSCoreTests SFSDetectTests.swift
+[14/17] Compiling SFSCoreTests SFSEngineTests.swift
+[15/17] Emitting module SFSCoreTests
+[16/19] Compiling SFSCorePackageTests runner.swift
+[17/19] Emitting module SFSCorePackageTests
+[17/19] Write Objects.LinkFileList
+[18/19] Linking SFSCorePackageTests
+Build complete! (35.53s)
+Test Suite 'All tests' started at 2026-10-20 12:35:35.024.
+Test Suite 'SFSCorePackageTests.xctest' started at 2026-10-20 12:35:35.028.
+Test Suite 'SFSDetectTests' started at 2026-10-20 12:35:35.028.
+Test Case '-[SFSCoreTests.SFSDetectTests testAjustesViejosSeCompletanConLosNuevos]' started.
+Test Case '-[SFSCoreTests.SFSDetectTests testAjustesViejosSeCompletanConLosNuevos]' passed (0.005 seconds).
+Test Case '-[SFSCoreTests.SFSDetectTests testConFotoBastaUnArrobaOUnLink]' started.
+Test Case '-[SFSCoreTests.SFSDetectTests testConFotoBastaUnArrobaOUnLink]' passed (0.002 seconds).
+Test Case '-[SFSCoreTests.SFSDetectTests testDetectaPromosIgualQueElBot]' started.
+Test Case '-[SFSCoreTests.SFSDetectTests testDetectaPromosIgualQueElBot]' passed (0.000 seconds).
+Test Case '-[SFSCoreTests.SFSDetectTests testFirmaInvisibleYUsername]' started.
+Test Case '-[SFSCoreTests.SFSDetectTests testFirmaInvisibleYUsername]' passed (0.000 seconds).
+Test Case '-[SFSCoreTests.SFSDetectTests testPeticionesYPalabrasClave]' started.
+Test Case '-[SFSCoreTests.SFSDetectTests testPeticionesYPalabrasClave]' passed (0.001 seconds).
+Test Suite 'SFSDetectTests' passed at 2026-10-20 12:35:35.037.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'SFSEngineTests' started at 2026-10-20 12:35:35.037.
+Test Case '-[SFSCoreTests.SFSEngineTests testApagadoNoEmpiezaNadaNuevoPeroTerminaElEnCurso]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testApagadoNoEmpiezaNadaNuevoPeroTerminaElEnCurso]' passed (0.131 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testConAdsApagadoNoMandaAdsPeroSiSube]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testConAdsApagadoNoMandaAdsPeroSiSube]' passed (0.038 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testDosPublicacionesSeguidasRespetanLaColaDe20Segundos]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testDosPublicacionesSeguidasRespetanLaColaDe20Segundos]' passed (0.103 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testHistoriaQueNoMeMencionaNoCuenta]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testHistoriaQueNoMeMencionaNoCuenta]' passed (0.070 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testMensajesNormalesNoDisparanNada]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testMensajesNormalesNoDisparanNada]' passed (0.040 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testMePublicaPrimeroConFotoLoSubeSinAds]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testMePublicaPrimeroConFotoLoSubeSinAds]' passed (0.103 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testMePublicaPrimeroSinFotoLePideLaFoto]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testMePublicaPrimeroSinFotoLePideLaFoto]' passed (0.051 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testOtraCuentaDelSistemaRecibeAdsPeroNoGraciasNiAnuncio]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testOtraCuentaDelSistemaRecibeAdsPeroNoGraciasNiAnuncio]' passed (0.100 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testPantallaEncendidaSoloConElSfsEncendido]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testPantallaEncendidaSoloConElSfsEncendido]' passed (0.001 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testPideElSpamYSubeLaFotoQueMandanDespues]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testPideElSpamYSubeLaFotoQueMandanDespues]' passed (0.085 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testPromoConFotoSubeYAlPublicarmeMandaGraciasYAnuncio]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testPromoConFotoSubeYAlPublicarmeMandaGraciasYAnuncio]' passed (0.159 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testRespetaMensajesApagadosPeroElAnuncioSeMandaSiempre]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testRespetaMensajesApagadosPeroElAnuncioSeMandaSiempre]' passed (0.092 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testSfsEnDosMensajesFotoYDespuesTexto]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testSfsEnDosMensajesFotoYDespuesTexto]' passed (0.079 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testSinAdsConfiguradoNoSePuedeEmpezar]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testSinAdsConfiguradoNoSePuedeEmpezar]' passed (0.021 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testSiNoMePublicaATiempoLoBaja]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testSiNoMePublicaATiempoLoBaja]' passed (0.782 seconds).
+Test Case '-[SFSCoreTests.SFSEngineTests testUsaElTextoEditadoDelCliente]' started.
+Test Case '-[SFSCoreTests.SFSEngineTests testUsaElTextoEditadoDelCliente]' passed (0.046 seconds).
+Test Suite 'SFSEngineTests' passed at 2026-10-20 12:35:36.945.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 1.901 (1.908) seconds
+Test Suite 'SFSCorePackageTests.xctest' passed at 2026-10-20 12:35:36.945.
+	 Executed 21 tests, with 0 failures (0 unexpected) in 1.910 (1.918) seconds
+Test Suite 'All tests' passed at 2026-10-20 12:35:36.945.
+	 Executed 21 tests, with 0 failures (0 unexpected) in 1.910 (1.922) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
