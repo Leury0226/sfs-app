@@ -1,0 +1,4 @@
+web/
+build/
+*.xcodeproj/
+SFSApp/Info.plist

@@ -1,0 +1,51 @@
+# Proyecto de la app de iPhone (XcodeGen). Lo compila `.github/workflows/ios.yml` en una Mac de GitHub.
+# La carpeta `web/` es la interfaz compilada (`npm run build:production`), la copia el workflow.
+name: SFSApp
+options:
+  bundleIdPrefix: com.followmytg
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  SFSApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: SFSApp
+      - path: web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.followmytg.sfsapp
+        PRODUCT_NAME: SFSApp
+        MARKETING_VERSION: "0.4.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+    info:
+      path: SFSApp/Info.plist
+      properties:
+        CFBundleDisplayName: SFS App
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIRequiresFullScreen: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIViewControllerBasedStatusBarAppearance: false
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Para mandar fotos y videos en tus chats.
+        NSMicrophoneUsageDescription: Para mandar notas de voz y hacer llamadas.
+        NSPhotoLibraryUsageDescription: Para mandar fotos de tu galería en tus chats.
+        NSPhotoLibraryAddUsageDescription: Para guardar fotos y videos de tus chats.

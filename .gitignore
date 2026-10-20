@@ -1,0 +1,17 @@
+dist/build-stats.json
+node_modules
+.cache
+.env
+src/lib/gramjs/build/
+build-contest/
+tests/
+.idea
+*.iml
+dev/perf/screenshot*
+.DS_store
+.github/workflows/*
+!.github/workflows/package-and-publish.yml
+
+# SFS App: la compilacion se genera (npm run build:production), no se sube
+/dist/
+!.github/workflows/ios.yml
