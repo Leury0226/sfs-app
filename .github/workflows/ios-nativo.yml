@@ -21,7 +21,35 @@ env:
   XCODE_APP: /Applications/Xcode_26.6.app
 
 jobs:
+  # Pruebas del cerebro SFS (Swift puro, segundos). Si fallan, no se gasta la compilacion larga
+  core-tests:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pruebas del motor SFS
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          cd ios/SFSModule
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/core-tests.log"
+
+      - name: Guardar registro de pruebas
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/core-tests.log" ] || echo "Sin registro de pruebas" > "$RUNNER_TEMP/core-tests.log"
+          git clone -q --depth 1 --branch ci-logs "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" logs \
+            || { git init -q -b ci-logs logs && git -C logs remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"; }
+          mkdir -p logs/runs
+          tail -n 600 "$RUNNER_TEMP/core-tests.log" > "logs/runs/${GITHUB_RUN_NUMBER}-tests.log"
+          cd logs
+          git add runs
+          git -c user.name="SFS CI" -c user.email="ci@followmytg.com" commit -q -m "Pruebas ${GITHUB_RUN_NUMBER} (${{ job.status }})"
+          git push -q origin HEAD:ci-logs
+
   build:
+    needs: core-tests
     runs-on: macos-26
     timeout-minutes: 345
     steps:
