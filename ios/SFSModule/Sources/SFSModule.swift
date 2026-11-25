@@ -6,83 +6,109 @@ import SwiftSignalKit
 import Postbox
 import TelegramCore
 
-// Punto de entrada del modulo SFS. Telegram (AuthorizedApplicationContext) llama `start` al iniciar sesion
-// y `stop` al cerrar la sesion de esa cuenta.
+// Punto de entrada del modulo SFS. Telegram (`AppDelegate`) llama `updateAccounts` con todas las cuentas con
+// sesion iniciada: el SFS trabaja en todas a la vez, cada una con su licencia, ajustes e historial.
 public final class SFSModule {
     public static let shared = SFSModule()
-    // Telegram (`SharedWakeupManager`) vuelve a revisar si mantiene la conexion cuando cambia `isKeepingAppAlive`
+    // Telegram (`SharedWakeupManager`) vuelve a revisar que cuentas mantiene conectadas cuando esto cambia
     public static let keepAliveDidChangeNotification = Notification.Name("SFSKeepAliveDidChange")
 
-    let license = SFSLicenseStore()
+    // `SharedWakeupManager` lee estos conjuntos fuera del hilo principal
     private let keepAliveLock = NSLock()
-    private var isKeepingAppAliveValue = false
-    @MainActor private var session: SFSSession?
+    private var workingUserIds = Set<Int64>()
+    private var backgroundUserIds = Set<Int64>()
+
+    @MainActor let accounts = SFSAccountList()
+    @MainActor private var statuses: [Int64: SFSButtonStatus] = [:]
+    @MainActor private let buttonStatus = CurrentValueSubject<SFSButtonStatus, Never>(.off)
     @MainActor private var floatingWindow: SFSFloatingWindow?
+    @MainActor private lazy var backgroundKeeper = SFSBackgroundKeeper()
+    @MainActor private var isKeepingScreenAwake = false
 
     private init() {
     }
 
-    // Con el modo segundo plano trabajando, Telegram no corta la conexion de la cuenta al salir de la app
+    // Con el modo segundo plano trabajando en alguna cuenta, Telegram no deja que iOS suspenda la app
     public var isKeepingAppAlive: Bool {
         self.keepAliveLock.lock()
         defer {
             self.keepAliveLock.unlock()
         }
-        return self.isKeepingAppAliveValue
+        return !self.backgroundUserIds.isEmpty
     }
 
-    func setKeepingAppAlive(_ isKeepingAppAlive: Bool) {
+    // Cuentas con el SFS trabajando: Telegram las mantiene conectadas aunque no sean la cuenta abierta.
+    // En segundo plano, solo las que tienen ese modo encendido
+    public func shouldKeepConnection(userId: Int64, isInForeground: Bool) -> Bool {
         self.keepAliveLock.lock()
-        let hasChanged = self.isKeepingAppAliveValue != isKeepingAppAlive
-        self.isKeepingAppAliveValue = isKeepingAppAlive
+        defer {
+            self.keepAliveLock.unlock()
+        }
+        return isInForeground ? self.workingUserIds.contains(userId) : self.backgroundUserIds.contains(userId)
+    }
+
+    public func updateAccounts(_ accounts: [Account], primaryAccount: Account?) {
+        Task { @MainActor in
+            self.syncSessions(accounts: accounts, primaryUserId: primaryAccount.map(Self.userId))
+        }
+    }
+
+    @MainActor
+    private func syncSessions(accounts: [Account], primaryUserId: Int64?) {
+        let current = Dictionary(uniqueKeysWithValues: self.accounts.sessions.map { ($0.userId, $0) })
+        var sessions: [SFSSession] = []
+        for account in accounts {
+            let userId = Self.userId(account)
+            if sessions.contains(where: { $0.userId == userId }) {
+                continue
+            }
+            sessions.append(current[userId] ?? SFSSession(account: account))
+        }
+        for session in current.values where !sessions.contains(where: { $0 === session }) {
+            session.stop()
+            self.updateSession(userId: session.userId, status: nil, isBackgroundModeEnabled: false)
+        }
+
+        self.accounts.update(sessions: sessions, primaryUserId: primaryUserId)
+        self.updateFloatingButton()
+    }
+
+    // Cada sesion avisa su estado; nil cuando la cuenta se cierra
+    @MainActor
+    func updateSession(userId: Int64, status: SFSButtonStatus?, isBackgroundModeEnabled: Bool) {
+        self.statuses[userId] = status
+        let isWorking = status == .working
+
+        self.keepAliveLock.lock()
+        let previous = (self.workingUserIds, self.backgroundUserIds)
+        Self.set(&self.workingUserIds, userId, isWorking)
+        Self.set(&self.backgroundUserIds, userId, isWorking && isBackgroundModeEnabled)
+        let hasChanged = previous != (self.workingUserIds, self.backgroundUserIds)
+        let isKeepingAppAlive = !self.backgroundUserIds.isEmpty
+        let hasForegroundOnlyWork = !self.workingUserIds.subtracting(self.backgroundUserIds).isEmpty
         self.keepAliveLock.unlock()
+
+        // Segundo plano: el audio en silencio mantiene la app viva y la pantalla se puede bloquear.
+        // Sin ese modo, la pantalla no se apaga (si se bloquea, iOS congela la app y el SFS de esa cuenta se detiene)
+        self.backgroundKeeper.setEnabled(isKeepingAppAlive)
+        self.setKeepScreenAwake(hasForegroundOnlyWork)
+        self.buttonStatus.send(Self.combine(Array(self.statuses.values)))
         if hasChanged {
             NotificationCenter.default.post(name: Self.keepAliveDidChangeNotification, object: nil)
         }
     }
 
-    public func start(account: Account, username: String?, fullName: String?) {
-        Task { @MainActor in
-            self.startSession(account: account, username: username, fullName: fullName)
-        }
-    }
-
-    public func stop(userId: Int64) {
-        Task { @MainActor in
-            self.stopSession(userId: userId)
-        }
-    }
-
     @MainActor
-    private func startSession(account: Account, username: String?, fullName: String?) {
-        let userId = account.peerId.id._internalGetInt64Value()
-        if self.session?.userId == userId {
+    private func updateFloatingButton() {
+        if self.accounts.sessions.isEmpty {
+            self.floatingWindow?.isHidden = true
+            self.floatingWindow = nil
             return
         }
-        self.session?.stop()
-
-        self.license.start(userId: userId, username: username, fullName: fullName)
-        let session = SFSSession(account: account, license: self.license)
-        self.session = session
-        self.showFloatingButton(session: session)
-    }
-
-    @MainActor
-    private func stopSession(userId: Int64) {
-        guard let session = self.session, session.userId == userId else {
+        if self.floatingWindow != nil {
             return
         }
-        session.stop()
-        self.session = nil
-        self.license.stop()
-        self.floatingWindow?.isHidden = true
-        self.floatingWindow = nil
-    }
-
-    @MainActor
-    private func showFloatingButton(session: SFSSession) {
-        self.floatingWindow?.isHidden = true
-        let window = SFSFloatingWindow(status: session.buttonStatus, onTap: { [weak self] in
+        let window = SFSFloatingWindow(status: self.buttonStatus.eraseToAnyPublisher(), onTap: { [weak self] in
             self?.presentPanel()
         })
         window.show()
@@ -90,12 +116,21 @@ public final class SFSModule {
     }
 
     @MainActor
+    private func setKeepScreenAwake(_ isAwake: Bool) {
+        if self.isKeepingScreenAwake == isAwake {
+            return
+        }
+        self.isKeepingScreenAwake = isAwake
+        UIApplication.shared.isIdleTimerDisabled = isAwake
+    }
+
+    @MainActor
     func presentPanel() {
-        guard let session = self.session, let presenter = Self.topViewController(), !(presenter is SFSPanelHostingController) else {
+        guard !self.accounts.sessions.isEmpty, let presenter = Self.topViewController(), !(presenter is SFSPanelHostingController) else {
             return
         }
 
-        let controller = SFSPanelHostingController(license: self.license, session: session)
+        let controller = SFSPanelHostingController(accounts: self.accounts)
         controller.modalPresentationStyle = .pageSheet
         if let sheet = controller.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
@@ -117,29 +152,75 @@ public final class SFSModule {
         }
         return top
     }
+
+    // Verde si alguna cuenta trabaja; rojo solo si ninguna tiene licencia
+    private static func combine(_ statuses: [SFSButtonStatus]) -> SFSButtonStatus {
+        if statuses.contains(.working) {
+            return .working
+        }
+        if statuses.contains(.off) || statuses.isEmpty {
+            return .off
+        }
+        return .noLicense
+    }
+
+    private static func set(_ ids: inout Set<Int64>, _ userId: Int64, _ isIncluded: Bool) {
+        if isIncluded {
+            ids.insert(userId)
+        } else {
+            ids.remove(userId)
+        }
+    }
+
+    private static func userId(_ account: Account) -> Int64 {
+        return account.peerId.id._internalGetInt64Value()
+    }
+}
+
+// Cuentas con sesion iniciada, en el orden de Telegram, para el panel
+@MainActor
+final class SFSAccountList: ObservableObject {
+    @Published private(set) var sessions: [SFSSession] = []
+    private(set) var primaryUserId: Int64?
+
+    nonisolated init() {
+    }
+
+    func update(sessions: [SFSSession], primaryUserId: Int64?) {
+        self.primaryUserId = primaryUserId
+        if self.sessions.map(\.userId) != sessions.map(\.userId) {
+            self.sessions = sessions
+        }
+    }
 }
 
 // Todo lo del SFS de una cuenta con sesion iniciada
 @MainActor
-final class SFSSession {
+final class SFSSession: ObservableObject, Identifiable {
     let userId: Int64
+    let license: SFSLicenseStore
     let settings: SFSSettingsStore
     let state: SFSStateStore
     let engine: SFSEngine
     let telegram: SFSTelegramAdapter
-    let buttonStatus: AnyPublisher<SFSButtonStatus, Never>
+
+    @Published private(set) var title: String
+    @Published private(set) var status: SFSButtonStatus = .off
 
     private let disposables = DisposableSet()
     private var cancellables = Set<AnyCancellable>()
-    private var isKeepingScreenAwake = false
-    private let backgroundKeeper = SFSBackgroundKeeper()
 
-    init(account: Account, license: SFSLicenseStore) {
+    nonisolated var id: Int64 {
+        return self.userId
+    }
+
+    init(account: Account) {
         let storage = SFSUserDefaultsStorage()
         let userId = account.peerId.id._internalGetInt64Value()
         let settings = SFSSettingsStore(storage: storage)
         let state = SFSStateStore(storage: storage, now: { Date() })
         let telegram = SFSTelegramAdapter(account: account)
+        let license = SFSLicenseStore()
         let engine = SFSEngine(
             telegram: telegram,
             clock: SFSSystemClock(),
@@ -150,34 +231,45 @@ final class SFSSession {
             }
         )
         self.userId = userId
+        self.license = license
+        self.title = String(userId)
         self.settings = settings
         self.state = state
         self.telegram = telegram
         self.engine = engine
-        self.buttonStatus = license.$state
-            .combineLatest(settings.$settings)
-            .map { licenseState, settings -> SFSButtonStatus in
-                switch licenseState {
-                case .valid:
-                    return settings.isEnabled ? .working : .off
-                case .loading:
-                    return .off
-                case .invalid, .error:
-                    return .noLicense
-                }
-            }
-            .removeDuplicates()
-            .eraseToAnyPublisher()
 
         engine.start(userId: userId)
 
-        // Segundo plano encendido: el audio en silencio mantiene la app viva y la pantalla se puede bloquear.
-        // Apagado: la pantalla no se apaga (si se bloquea, iOS congela la app y el SFS se detiene)
-        self.buttonStatus
-            .combineLatest(settings.$settings.map(\.isBackgroundModeEnabled).removeDuplicates())
-            .receive(on: DispatchQueue.main)
+        self.disposables.add((SFSBridge.profile(account: account)
+        |> deliverOnMainQueue).start(next: { [weak self] profile in
+            guard let self = self else {
+                return
+            }
+            self.title = profile.fullName ?? profile.username.map { "@\($0)" } ?? String(userId)
+            self.license.start(userId: userId, username: profile.username, fullName: profile.fullName)
+        }))
+
+        license.$state
+            .combineLatest(settings.$settings)
+            .map { licenseState, settings -> (SFSButtonStatus, Bool) in
+                let status: SFSButtonStatus
+                switch licenseState {
+                case .valid:
+                    status = settings.isEnabled ? .working : .off
+                case .loading:
+                    status = .off
+                case .invalid, .error:
+                    status = .noLicense
+                }
+                return (status, settings.isBackgroundModeEnabled)
+            }
+            .removeDuplicates(by: { $0.0 == $1.0 && $0.1 == $1.1 })
             .sink { [weak self] status, isBackgroundModeEnabled in
-                self?.applyRunMode(isWorking: status == .working, isBackgroundModeEnabled: isBackgroundModeEnabled)
+                guard let self = self else {
+                    return
+                }
+                self.status = status
+                SFSModule.shared.updateSession(userId: userId, status: status, isBackgroundModeEnabled: isBackgroundModeEnabled)
             }
             .store(in: &self.cancellables)
 
@@ -206,29 +298,14 @@ final class SFSSession {
         self.disposables.dispose()
         self.cancellables.removeAll()
         self.engine.stop()
-        self.applyRunMode(isWorking: false, isBackgroundModeEnabled: false)
-    }
-
-    private func applyRunMode(isWorking: Bool, isBackgroundModeEnabled: Bool) {
-        let isKeepingAppAlive = isWorking && isBackgroundModeEnabled
-        self.backgroundKeeper.setEnabled(isKeepingAppAlive)
-        SFSModule.shared.setKeepingAppAlive(isKeepingAppAlive)
-        self.setKeepScreenAwake(isWorking && !isBackgroundModeEnabled)
-    }
-
-    private func setKeepScreenAwake(_ isAwake: Bool) {
-        if self.isKeepingScreenAwake == isAwake {
-            return
-        }
-        self.isKeepingScreenAwake = isAwake
-        UIApplication.shared.isIdleTimerDisabled = isAwake
+        self.license.stop()
     }
 }
 
 final class SFSPanelHostingController: UIHostingController<SFSPanelView> {
-    init(license: SFSLicenseStore, session: SFSSession) {
+    init(accounts: SFSAccountList) {
         var dismissAction: (() -> Void)?
-        super.init(rootView: SFSPanelView(license: license, session: session, settings: session.settings, state: session.state, onClose: {
+        super.init(rootView: SFSPanelView(accounts: accounts, onClose: {
             dismissAction?()
         }))
         dismissAction = { [weak self] in

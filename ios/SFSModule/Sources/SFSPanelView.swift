@@ -14,57 +14,155 @@ private enum SFSPanelTab: String, CaseIterable, Identifiable {
 }
 
 struct SFSPanelView: View {
-    @ObservedObject var license: SFSLicenseStore
-    let session: SFSSession
-    @ObservedObject var settings: SFSSettingsStore
-    @ObservedObject var state: SFSStateStore
+    @ObservedObject var accounts: SFSAccountList
     let onClose: () -> Void
 
-    @State private var tab: SFSPanelTab = .home
+    @State private var selectedUserId: Int64?
 
     var body: some View {
         NavigationView {
             Group {
-                if self.license.isValid {
-                    VStack(spacing: 0) {
-                        Picker("Sección", selection: self.$tab) {
-                            ForEach(SFSPanelTab.allCases) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-
-                        switch self.tab {
-                        case .home:
-                            SFSHomeTab(license: self.license, session: self.session, settings: self.settings, state: self.state)
-                        case .messages:
-                            SFSMessagesTab(settings: self.settings)
-                        case .settings:
-                            SFSSettingsTab(settings: self.settings)
-                        case .activity:
-                            SFSActivityTab(state: self.state)
-                        }
-                    }
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-                } else {
-                    List {
-                        SFSLicenseSections(license: self.license)
-                        SFSVersionFooter()
-                    }
-                    .listStyle(.insetGrouped)
+                if let session = self.selectedSession {
+                    SFSAccountPanel(session: session, license: session.license, settings: session.settings, state: session.state)
+                        .id(session.userId)
                 }
             }
-            .navigationTitle("SFS")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    if self.accounts.sessions.count > 1, let session = self.selectedSession {
+                        SFSAccountMenu(sessions: self.accounts.sessions, selected: session, onSelect: { userId in
+                            self.selectedUserId = userId
+                        })
+                    } else {
+                        Text("SFS")
+                            .font(.headline)
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Listo", action: self.onClose)
                 }
             }
         }
         .navigationViewStyle(.stack)
+    }
+
+    // La cuenta elegida; al abrir, la cuenta abierta en Telegram
+    private var selectedSession: SFSSession? {
+        let sessions = self.accounts.sessions
+        let userId = self.selectedUserId ?? self.accounts.primaryUserId
+        return sessions.first(where: { $0.userId == userId }) ?? sessions.first
+    }
+}
+
+// Selector de cuenta en el titulo del panel, con el estado del SFS de cada una
+private struct SFSAccountMenu: View {
+    let sessions: [SFSSession]
+    @ObservedObject var selected: SFSSession
+    let onSelect: (Int64) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(self.sessions) { session in
+                SFSAccountMenuItem(session: session, isSelected: session.userId == self.selected.userId, onSelect: self.onSelect)
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(SFSAccountMenuItem.color(self.selected.status))
+                    .frame(width: 8, height: 8)
+                Text(self.selected.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down.circle.fill")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+private struct SFSAccountMenuItem: View {
+    @ObservedObject var session: SFSSession
+    let isSelected: Bool
+    let onSelect: (Int64) -> Void
+
+    var body: some View {
+        Button {
+            self.onSelect(self.session.userId)
+        } label: {
+            Label {
+                Text("\(self.session.title) · \(Self.statusText(self.session.status))")
+            } icon: {
+                Image(systemName: self.isSelected ? "checkmark" : "person.crop.circle")
+            }
+        }
+    }
+
+    static func statusText(_ status: SFSButtonStatus) -> String {
+        switch status {
+        case .working:
+            return "Trabajando"
+        case .off:
+            return "Apagado"
+        case .noLicense:
+            return "Sin licencia"
+        }
+    }
+
+    static func color(_ status: SFSButtonStatus) -> Color {
+        switch status {
+        case .working:
+            return .green
+        case .off:
+            return .gray
+        case .noLicense:
+            return .red
+        }
+    }
+}
+
+// Panel de una cuenta: licencia, encendido, mensajes, ajustes y actividad
+private struct SFSAccountPanel: View {
+    let session: SFSSession
+    @ObservedObject var license: SFSLicenseStore
+    @ObservedObject var settings: SFSSettingsStore
+    @ObservedObject var state: SFSStateStore
+
+    @State private var tab: SFSPanelTab = .home
+
+    var body: some View {
+        if self.license.isValid {
+            VStack(spacing: 0) {
+                Picker("Sección", selection: self.$tab) {
+                    ForEach(SFSPanelTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
+                switch self.tab {
+                case .home:
+                    SFSHomeTab(license: self.license, session: self.session, settings: self.settings, state: self.state)
+                case .messages:
+                    SFSMessagesTab(settings: self.settings)
+                case .settings:
+                    SFSSettingsTab(settings: self.settings)
+                case .activity:
+                    SFSActivityTab(state: self.state)
+                }
+            }
+            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        } else {
+            List {
+                SFSLicenseSections(license: self.license)
+                SFSVersionFooter()
+            }
+            .listStyle(.insetGrouped)
+        }
     }
 }
 
@@ -348,7 +446,7 @@ private struct SFSSettingsTab: View {
 
             Section(
                 header: Text("Segundo plano"),
-                footer: Text("Encendido: el SFS sigue trabajando con la pantalla bloqueada o mientras usas otras apps. Gasta más batería. Si cierras la app deslizándola hacia arriba, o iOS se queda sin memoria, el SFS se detiene hasta que la vuelvas a abrir.\n\nApagado: el SFS solo trabaja con la app abierta y la pantalla se queda encendida.")
+                footer: Text("Encendido: el SFS sigue trabajando con la pantalla bloqueada o mientras usas otras apps. Gasta más batería. Si cierras la app deslizándola hacia arriba, o iOS se queda sin memoria, el SFS se detiene hasta que la vuelvas a abrir.\n\nApagado: el SFS solo trabaja con la app abierta y la pantalla se queda encendida.\n\nSe aplica solo a esta cuenta.")
             ) {
                 Toggle("Seguir trabajando en segundo plano", isOn: Binding(
                     get: { self.settings.settings.isBackgroundModeEnabled },

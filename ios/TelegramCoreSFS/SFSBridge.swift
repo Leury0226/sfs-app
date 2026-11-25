@@ -42,6 +42,11 @@ public struct SFSBridgeHistoryMessage {
     public let hasPhoto: Bool
 }
 
+public struct SFSBridgeProfile {
+    public let username: String?
+    public let fullName: String?
+}
+
 public enum SFSBridgePublishResult {
     case published(storyId: Int32)
     case failed(error: String)
@@ -55,6 +60,14 @@ public enum SFSBridge {
     private static let uncertainBatchSize = 10
     private static let storyUploadTimeout: Double = 180
     private static let outgoingFlag: Int32 = 1 << 1
+
+    // Usuario y nombre de la cuenta, para la licencia y el selector de cuentas del panel
+    public static func profile(account: Account) -> Signal<SFSBridgeProfile, NoError> {
+        return account.postbox.transaction { transaction -> SFSBridgeProfile in
+            let peer = transaction.getPeer(account.peerId)
+            return SFSBridgeProfile(username: peer?.addressName, fullName: peer?.debugDisplayTitle)
+        }
+    }
 
     // Mensajes nuevos que llegan a chats privados (tambien de chats silenciados)
     public static func incomingMessages(account: Account) -> Signal<[SFSBridgeIncomingMessage], NoError> {

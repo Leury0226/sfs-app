@@ -59,33 +59,20 @@ patch('submodules/TelegramUI/BUILD',
       '        "//third-party/recaptcha:RecaptchaEnterprise",\n',
       '        "//third-party/recaptcha:RecaptchaEnterprise",\n        "//submodules/SFSModule:SFSModule",\n')
 
-# 4. Arrancar el SFS al iniciar sesion y apagarlo al cerrar esa sesion
-patch('submodules/TelegramUI/Sources/ApplicationContext.swift',
-      'import BrowserUI\n',
-      'import BrowserUI\nimport SFSModule\n')
+# 4. El SFS trabaja en todas las cuentas con sesion iniciada: Telegram le pasa la lista cada vez que cambia
+patch('submodules/TelegramUI/Sources/AppDelegate.swift',
+      'import MTProtoRustEngine\n',
+      'import MTProtoRustEngine\nimport SFSModule\n')
 
-patch('submodules/TelegramUI/Sources/ApplicationContext.swift',
-      '''                self.rootController.presentOverlay(controller: overlayController, inGlobal: true, blockInteraction: false)
-            }
-        }
-    }
-    
-    deinit {
-        self.context.account.postbox.clearCaches()
+patch('submodules/TelegramUI/Sources/AppDelegate.swift',
+      '''            let sharedApplicationContext = SharedApplicationContext(sharedContext: sharedContext, notificationManager: notificationManager, wakeupManager: wakeupManager)
 ''',
-      '''                self.rootController.presentOverlay(controller: overlayController, inGlobal: true, blockInteraction: false)
-            }
-        }
-        
-        let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
-        |> deliverOnMainQueue).start(next: { peer in
-            SFSModule.shared.start(account: context.account, username: peer?.addressName, fullName: peer?.debugDisplayTitle)
-        })
-    }
-    
-    deinit {
-        SFSModule.shared.stop(userId: self.context.account.peerId.id._internalGetInt64Value())
-        self.context.account.postbox.clearCaches()
+      '''            let sharedApplicationContext = SharedApplicationContext(sharedContext: sharedContext, notificationManager: notificationManager, wakeupManager: wakeupManager)
+            
+            let _ = (sharedContext.activeAccountContexts
+            |> deliverOnMainQueue).start(next: { primary, accounts, _ in
+                SFSModule.shared.updateAccounts(accounts.map { $0.1.account }, primaryAccount: primary?.account)
+            })
 ''')
 
 # 5. TelegramCore avisa al SFS de cada mensaje nuevo, tambien en chats silenciados
@@ -123,7 +110,8 @@ patch(STATE_MANAGER,
     func injectStoryUpdates(updates: [InternalStoryUpdate]) {
 ''')
 
-# 6. Modo segundo plano del SFS: mientras este trabajando, Telegram no corta la conexion de la cuenta al salir de la app
+# 6. Telegram mantiene conectadas las cuentas con el SFS trabajando (no solo la abierta), y en segundo plano
+#    las que tienen ese modo encendido
 WAKEUP = 'submodules/TelegramUI/Sources/SharedWakeupManager.swift'
 patch(WAKEUP,
       '''import TelegramAudio
@@ -155,5 +143,5 @@ patch(WAKEUP,
 patch(WAKEUP,
       '''                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) {
 ''',
-      '''                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || (SFSModule.shared.isKeepingAppAlive && primary) {
+      '''                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || SFSModule.shared.shouldKeepConnection(userId: account.peerId.id._internalGetInt64Value(), isInForeground: self.inForeground) {
 ''')

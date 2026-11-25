@@ -1,5 +1,14 @@
 # CHANGELOG - SFS App para iPhone (nativa)
 
+## v0.9.0 - 2026-11-24
+- SFS en varias cuentas a la vez: arranca en cada cuenta con sesion iniciada (no solo la abierta), cada una
+  con su licencia, ajustes, ADS e historial. Telegram le pasa la lista de cuentas desde `AppDelegate.swift`.
+- Telegram mantiene conectadas las cuentas con el SFS trabajando aunque no sean la abierta; en segundo plano,
+  las que tienen ese modo encendido (cambio en `SharedWakeupManager.swift`).
+- Panel con selector de cuenta en el titulo, con el estado de cada una (trabajando, apagado, sin licencia).
+  El boton flotante se pone verde si al menos una cuenta esta trabajando.
+- El modo segundo plano es por cuenta.
+
 ## v0.8.0 - 2026-11-24
 - Bundle ID propio (`com.followmytg.sfsapp`): SFS App se instala al lado del Telegram oficial sin reemplazarlo.
   Los perfiles de firma de prueba se generan en cada compilacion (`ios/codesigning/make_profiles.py`) con ese
