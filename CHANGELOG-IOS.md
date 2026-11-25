@@ -1,5 +1,15 @@
 # CHANGELOG - SFS App para iPhone (nativa)
 
+## v0.8.0 - 2026-11-24
+- Bundle ID propio (`com.followmytg.sfsapp`): SFS App se instala al lado del Telegram oficial sin reemplazarlo.
+  Los perfiles de firma de prueba se generan en cada compilacion (`ios/codesigning/make_profiles.py`) con ese
+  bundle ID y fecha nueva (los de Telegram vencieron el 30 de octubre de 2026).
+- Modo segundo plano (Ajustes, apagado por defecto): con el SFS trabajando, la app toca audio en silencio al
+  salir de la pantalla para que iOS no la congele, y Telegram no corta la conexion de la cuenta
+  (cambio en `SharedWakeupManager.swift`). Con el modo encendido la pantalla se puede bloquear; apagado, la
+  pantalla se queda encendida como antes.
+- Las licencias siguen por suscripcion (followmytg.com), sin cambios.
+
 ## v0.7.0 - 2026-10-20
 - Motor SFS nativo en Swift (`SFSModule/Sources/Core`), misma logica que la app de Windows y el bot:
   detecta la promo (foto con @/links, o foto y texto por separado, "sfs", "use"/"go"), manda aviso + ADS,

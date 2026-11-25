@@ -62,6 +62,8 @@ struct SFSSettings: Codable, Equatable {
     var isEnabled: Bool
     var durationHours: Int
     var publishTimeoutMin: Int
+    // Seguir trabajando con la pantalla bloqueada o en otras apps (audio en silencio para que iOS no congele la app)
+    var isBackgroundModeEnabled: Bool
     var messages: [SFSMessageKey: SFSMessageSetting]
     var ads: SFSAdsSettings
 
@@ -71,6 +73,7 @@ struct SFSSettings: Codable, Equatable {
         durationHours: 24,
         // Perfil seguro del bot del servidor
         publishTimeoutMin: 60,
+        isBackgroundModeEnabled: false,
         messages: [
             .avisoTiempo: SFSMessageSetting(isEnabled: true, text: "✅ Te subí a mi historia por {horas}h. Súbeme tú también 🙌"),
             // `THANKS_VARIANTS`: mismo significado, distinto texto, para no repetir siempre el mismo mensaje
@@ -127,15 +130,17 @@ struct SFSSettings: Codable, Equatable {
         self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? defaults.isEnabled
         self.durationHours = try container.decodeIfPresent(Int.self, forKey: .durationHours) ?? defaults.durationHours
         self.publishTimeoutMin = try container.decodeIfPresent(Int.self, forKey: .publishTimeoutMin) ?? defaults.publishTimeoutMin
+        self.isBackgroundModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .isBackgroundModeEnabled) ?? defaults.isBackgroundModeEnabled
         let savedMessages = try container.decodeIfPresent([SFSMessageKey: SFSMessageSetting].self, forKey: .messages) ?? [:]
         self.messages = defaults.messages.merging(savedMessages, uniquingKeysWith: { _, saved in saved })
         self.ads = try container.decodeIfPresent(SFSAdsSettings.self, forKey: .ads) ?? defaults.ads
     }
 
-    init(isEnabled: Bool, durationHours: Int, publishTimeoutMin: Int, messages: [SFSMessageKey: SFSMessageSetting], ads: SFSAdsSettings) {
+    init(isEnabled: Bool, durationHours: Int, publishTimeoutMin: Int, isBackgroundModeEnabled: Bool, messages: [SFSMessageKey: SFSMessageSetting], ads: SFSAdsSettings) {
         self.isEnabled = isEnabled
         self.durationHours = durationHours
         self.publishTimeoutMin = publishTimeoutMin
+        self.isBackgroundModeEnabled = isBackgroundModeEnabled
         self.messages = messages
         self.ads = ads
     }

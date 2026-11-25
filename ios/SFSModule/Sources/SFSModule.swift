@@ -10,12 +10,35 @@ import TelegramCore
 // y `stop` al cerrar la sesion de esa cuenta.
 public final class SFSModule {
     public static let shared = SFSModule()
+    // Telegram (`SharedWakeupManager`) vuelve a revisar si mantiene la conexion cuando cambia `isKeepingAppAlive`
+    public static let keepAliveDidChangeNotification = Notification.Name("SFSKeepAliveDidChange")
 
     let license = SFSLicenseStore()
+    private let keepAliveLock = NSLock()
+    private var isKeepingAppAliveValue = false
     @MainActor private var session: SFSSession?
     @MainActor private var floatingWindow: SFSFloatingWindow?
 
     private init() {
+    }
+
+    // Con el modo segundo plano trabajando, Telegram no corta la conexion de la cuenta al salir de la app
+    public var isKeepingAppAlive: Bool {
+        self.keepAliveLock.lock()
+        defer {
+            self.keepAliveLock.unlock()
+        }
+        return self.isKeepingAppAliveValue
+    }
+
+    func setKeepingAppAlive(_ isKeepingAppAlive: Bool) {
+        self.keepAliveLock.lock()
+        let hasChanged = self.isKeepingAppAliveValue != isKeepingAppAlive
+        self.isKeepingAppAliveValue = isKeepingAppAlive
+        self.keepAliveLock.unlock()
+        if hasChanged {
+            NotificationCenter.default.post(name: Self.keepAliveDidChangeNotification, object: nil)
+        }
     }
 
     public func start(account: Account, username: String?, fullName: String?) {
@@ -109,6 +132,7 @@ final class SFSSession {
     private let disposables = DisposableSet()
     private var cancellables = Set<AnyCancellable>()
     private var isKeepingScreenAwake = false
+    private let backgroundKeeper = SFSBackgroundKeeper()
 
     init(account: Account, license: SFSLicenseStore) {
         let storage = SFSUserDefaultsStorage()
@@ -147,11 +171,13 @@ final class SFSSession {
 
         engine.start(userId: userId)
 
-        // Con el SFS trabajando la pantalla no se apaga (si se bloquea, iOS pausa la app y el SFS se detiene)
+        // Segundo plano encendido: el audio en silencio mantiene la app viva y la pantalla se puede bloquear.
+        // Apagado: la pantalla no se apaga (si se bloquea, iOS congela la app y el SFS se detiene)
         self.buttonStatus
+            .combineLatest(settings.$settings.map(\.isBackgroundModeEnabled).removeDuplicates())
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                self?.setKeepScreenAwake(status == .working)
+            .sink { [weak self] status, isBackgroundModeEnabled in
+                self?.applyRunMode(isWorking: status == .working, isBackgroundModeEnabled: isBackgroundModeEnabled)
             }
             .store(in: &self.cancellables)
 
@@ -180,7 +206,14 @@ final class SFSSession {
         self.disposables.dispose()
         self.cancellables.removeAll()
         self.engine.stop()
-        self.setKeepScreenAwake(false)
+        self.applyRunMode(isWorking: false, isBackgroundModeEnabled: false)
+    }
+
+    private func applyRunMode(isWorking: Bool, isBackgroundModeEnabled: Bool) {
+        let isKeepingAppAlive = isWorking && isBackgroundModeEnabled
+        self.backgroundKeeper.setEnabled(isKeepingAppAlive)
+        SFSModule.shared.setKeepingAppAlive(isKeepingAppAlive)
+        self.setKeepScreenAwake(isWorking && !isBackgroundModeEnabled)
     }
 
     private func setKeepScreenAwake(_ isAwake: Bool) {

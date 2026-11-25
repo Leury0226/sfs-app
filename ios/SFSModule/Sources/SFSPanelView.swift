@@ -151,8 +151,11 @@ private struct SFSHomeTab: View {
         if settings.isEnabled && !settings.isAdsReady {
             return "Falta tu ADS: elige tu mensaje guardado abajo para que el SFS pueda empezar."
         }
+        if settings.isEnabled && settings.isBackgroundModeEnabled {
+            return "Trabajando, también en segundo plano. No cierres la app deslizándola hacia arriba."
+        }
         if settings.isEnabled {
-            return "Trabajando. Deja la app abierta: la pantalla se queda encendida mientras el SFS está prendido."
+            return "Trabajando. Deja la app abierta: la pantalla se queda encendida. Para que siga con la pantalla bloqueada, prende el segundo plano en Ajustes."
         }
         return "Apagado: no empieza SFS nuevos, pero termina los que ya están en curso."
     }
@@ -341,6 +344,17 @@ private struct SFSSettingsTab: View {
                 ), in: 0...SFSSettings.publishTimeoutMax, step: Self.timeoutStep) {
                     Text(self.settings.settings.publishTimeoutMin == 0 ? "Sin límite" : "\(self.settings.settings.publishTimeoutMin) min")
                 }
+            }
+
+            Section(
+                header: Text("Segundo plano"),
+                footer: Text("Encendido: el SFS sigue trabajando con la pantalla bloqueada o mientras usas otras apps. Gasta más batería. Si cierras la app deslizándola hacia arriba, o iOS se queda sin memoria, el SFS se detiene hasta que la vuelvas a abrir.\n\nApagado: el SFS solo trabaja con la app abierta y la pantalla se queda encendida.")
+            ) {
+                Toggle("Seguir trabajando en segundo plano", isOn: Binding(
+                    get: { self.settings.settings.isBackgroundModeEnabled },
+                    set: { isOn in self.settings.update { $0.isBackgroundModeEnabled = isOn } }
+                ))
+                .tint(.green)
             }
 
             Section(

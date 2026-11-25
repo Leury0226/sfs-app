@@ -18,6 +18,8 @@ permissions:
 env:
   # Version de Telegram-iOS sobre la que se construye (fijada para que no cambie sola)
   TELEGRAM_IOS_COMMIT: f1dd7a2dbd02cbbf513e75d5695d8d36d1cf5838
+  # Propio de SFS App: asi se instala al lado del Telegram oficial sin reemplazarlo
+  SFS_BUNDLE_ID: com.followmytg.sfsapp
   XCODE_APP: /Applications/Xcode_26.6.app
 
 jobs:
@@ -95,11 +97,10 @@ jobs:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         run: |
-          # El identificador tiene que coincidir con los perfiles de prueba de Telegram; Sideloadly lo cambia al firmar
           python3 - <<'PY'
           import json, os
           config = {
-              "bundle_id": "ph.telegra.Telegraph",
+              "bundle_id": os.environ["SFS_BUNDLE_ID"],
               "api_id": os.environ["TELEGRAM_API_ID"],
               "api_hash": os.environ["TELEGRAM_API_HASH"],
               "team_id": "C67CF9S4VU",
@@ -123,6 +124,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k secret temp.keychain > /dev/null
           security find-identity -v -p codesigning
 
+      - name: Perfiles de firma de SFS App
+        run: |
+          python3 sfs/ios/codesigning/make_profiles.py \
+            telegram/build-system/fake-codesigning "$RUNNER_TEMP/sfs-codesigning" "$SFS_BUNDLE_ID" temp.keychain
+
       - name: Restaurar cache de compilacion
         uses: actions/cache/restore@v4
         with:
@@ -141,7 +147,7 @@ jobs:
             --bazelArguments="--jobs=3 --local_resources=memory=HOST_RAM*0.75" \
             build \
             --configurationPath="$HOME/sfs-configuration.json" \
-            --codesigningInformationPath=build-system/fake-codesigning \
+            --codesigningInformationPath="$RUNNER_TEMP/sfs-codesigning" \
             --buildNumber="$GITHUB_RUN_NUMBER" \
             --configuration=release_arm64 \
             --outputBuildArtifactsPath="$GITHUB_WORKSPACE/out" \

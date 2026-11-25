@@ -122,3 +122,38 @@ patch(STATE_MANAGER,
     
     func injectStoryUpdates(updates: [InternalStoryUpdate]) {
 ''')
+
+# 6. Modo segundo plano del SFS: mientras este trabajando, Telegram no corta la conexion de la cuenta al salir de la app
+WAKEUP = 'submodules/TelegramUI/Sources/SharedWakeupManager.swift'
+patch(WAKEUP,
+      '''import TelegramAudio
+''',
+      '''import TelegramAudio
+import SFSModule
+''')
+
+patch(WAKEUP,
+      '''            strongSelf.hasActiveAudioSession = value
+            strongSelf.checkTasks()
+        })
+''',
+      '''            strongSelf.hasActiveAudioSession = value
+            strongSelf.checkTasks()
+        })
+        
+        let _ = NotificationCenter.default.addObserver(forName: SFSModule.keepAliveDidChangeNotification, object: nil, queue: .main, using: { [weak self] _ in
+            self?.checkTasks()
+        })
+''')
+
+patch(WAKEUP,
+      '''|| self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil {
+''',
+      '''|| self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil || SFSModule.shared.isKeepingAppAlive {
+''')
+
+patch(WAKEUP,
+      '''                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) {
+''',
+      '''                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || (SFSModule.shared.isKeepingAppAlive && primary) {
+''')

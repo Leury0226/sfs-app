@@ -38,6 +38,7 @@ final class SFSDetectTests: XCTestCase {
         XCTAssertTrue(settings.isEnabled)
         XCTAssertEqual(settings.durationHours, 12)
         XCTAssertEqual(settings.publishTimeoutMin, 60)
+        XCTAssertFalse(settings.isBackgroundModeEnabled)
         XCTAssertEqual(settings.render(.avisoTiempo), "✅ Te subí a mi historia por 12h. Súbeme tú también 🙌")
     }
 }
