@@ -194,6 +194,11 @@ final class SFSAccountList: ObservableObject {
     }
 }
 
+private struct SFSRunMode: Equatable {
+    let status: SFSButtonStatus
+    let isBackgroundModeEnabled: Bool
+}
+
 // Todo lo del SFS de una cuenta con sesion iniciada
 @MainActor
 final class SFSSession: ObservableObject, Identifiable {
@@ -251,25 +256,12 @@ final class SFSSession: ObservableObject, Identifiable {
 
         license.$state
             .combineLatest(settings.$settings)
-            .map { licenseState, settings -> (SFSButtonStatus, Bool) in
-                let status: SFSButtonStatus
-                switch licenseState {
-                case .valid:
-                    status = settings.isEnabled ? .working : .off
-                case .loading:
-                    status = .off
-                case .invalid, .error:
-                    status = .noLicense
-                }
-                return (status, settings.isBackgroundModeEnabled)
+            .map { licenseState, settings -> SFSRunMode in
+                return Self.makeRunMode(licenseState: licenseState, settings: settings)
             }
-            .removeDuplicates(by: { $0.0 == $1.0 && $0.1 == $1.1 })
-            .sink { [weak self] status, isBackgroundModeEnabled in
-                guard let self = self else {
-                    return
-                }
-                self.status = status
-                SFSModule.shared.updateSession(userId: userId, status: status, isBackgroundModeEnabled: isBackgroundModeEnabled)
+            .removeDuplicates()
+            .sink { [weak self] runMode in
+                self?.applyRunMode(runMode)
             }
             .store(in: &self.cancellables)
 
@@ -299,6 +291,22 @@ final class SFSSession: ObservableObject, Identifiable {
         self.cancellables.removeAll()
         self.engine.stop()
         self.license.stop()
+    }
+
+    private func applyRunMode(_ runMode: SFSRunMode) {
+        self.status = runMode.status
+        SFSModule.shared.updateSession(userId: self.userId, status: runMode.status, isBackgroundModeEnabled: runMode.isBackgroundModeEnabled)
+    }
+
+    nonisolated private static func makeRunMode(licenseState: SFSLicenseStore.State, settings: SFSSettings) -> SFSRunMode {
+        switch licenseState {
+        case .valid:
+            return SFSRunMode(status: settings.isEnabled ? .working : .off, isBackgroundModeEnabled: settings.isBackgroundModeEnabled)
+        case .loading:
+            return SFSRunMode(status: .off, isBackgroundModeEnabled: settings.isBackgroundModeEnabled)
+        case .invalid, .error:
+            return SFSRunMode(status: .noLicense, isBackgroundModeEnabled: settings.isBackgroundModeEnabled)
+        }
     }
 }
 
